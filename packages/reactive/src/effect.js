@@ -8,7 +8,15 @@
  */
 const bucket = new WeakMap();
 
-const data = { ok: true, text: "hello, world", title: "title", num: 2 };
+// 测试数据
+const data = {
+  ok: true,
+  text: "hello, world",
+  title: "title",
+  num: 2,
+  bar: 2,
+  foo: "foo",
+};
 
 // 全局变量用来存储 副作用函数
 let activeEffect = null;
@@ -30,7 +38,7 @@ export const obj = new Proxy(data, {
   },
 });
 
-function track(target, key) {
+export function track(target, key) {
   if (!activeEffect) return;
   let depsMap = bucket.get(target);
   if (!depsMap) {
@@ -46,7 +54,7 @@ function track(target, key) {
   activeEffect.deps.push(deps);
 }
 
-function trigger(target, key) {
+export function trigger(target, key) {
   const depsMap = bucket.get(target);
   if (!depsMap) return;
   const effects = depsMap.get(key);
