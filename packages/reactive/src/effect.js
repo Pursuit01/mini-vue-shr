@@ -98,11 +98,15 @@ export function effect(fn, options = {}) {
     activeEffect = effectFn;
     // 在调用副作用函数之前将当前副作用函数推入栈中
     effectStack.push(effectFn);
-    fn();
+    // 保存一下执行副作用函数的值
+    const res = fn();
     // 在副作用函数调用结束后，出栈
     effectStack.pop();
     // 并更新 activeEffect 的值为栈顶元素
     activeEffect = effectStack[effectStack.length - 1];
+
+    // 把副作用函数的执行结果返回出去
+    return res;
   };
   // 将 options 挂载到 effectFn 上
   effectFn.options = options;
@@ -112,7 +116,12 @@ export function effect(fn, options = {}) {
   effectFn.deps = [];
 
   // 执行副作用函数，保留之前的功能
-  effectFn();
+  // effectFn()
+  if (!options.lazy) {
+    effectFn();
+  }
+  // 将封装后的副作用函数返回出去，这样方便手动去调用副作用函数
+  return effectFn;
 }
 export const jobQueue = new Set();
 const p = Promise.resolve();
