@@ -14,6 +14,16 @@ export function watch(source, cb, options = {}) {
   // 定义新值与旧值
   let oldValue, newValue;
 
+  // 提取 scheduler 调度函数作为一个独立的job
+  const job = () => {
+    // 获取副作用函数 effectFn 的执行结果，因为 effectFn 返回的是getter函数的执行结果，即返回 getter 的返回值
+    newValue = effectFn();
+    // 传入回调
+    cb(newValue, oldValue);
+    // 使用完旧值后，再更新旧值
+    oldValue = newValue;
+  };
+
   // 使用 traverse 函数强行读取一遍source的所有属性，这样在属性修改时，就会执行该回调
   const effectFn = effect(
     // 执行 getter
@@ -21,22 +31,24 @@ export function watch(source, cb, options = {}) {
     {
       lazy: true,
       scheduler() {
-        // 获取副作用函数 effectFn 的执行结果，因为 effectFn 返回的是getter函数的执行结果，即返回 getter 的返回值
-        newValue = effectFn();
-        // 传入回调
-        cb(newValue, oldValue);
-        // 使用完旧值后，再更新旧值
-        oldValue = newValue;
+        // 如果配置项flush = post，则将回调放入微任务队列中，将等待 DOM 更新结束后再执行
+        if (options.flush == "post") {
+          const p = Promise.resolve();
+          p.then(job);
+        } else {
+          job();
+        }
       },
     }
   );
 
-  // ?? 手动调用副作用函数，拿到的值就是旧值
-  oldValue = effectFn();
-
   // 如果 options 传入了 immediate，则立即执行一次回调
   if (options.immediate) {
-    cb();
+    // 此时 oldValue 为 null
+    job();
+  } else {
+    // 手动调用副作用函数，拿到的值就是旧值,这里的旧值是供 watch 监听的属性变更时使用的,即第二次执行 job 时
+    oldValue = effectFn();
   }
 }
 function traverse(value, seen = new Set()) {
