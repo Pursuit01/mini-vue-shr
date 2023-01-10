@@ -1,4 +1,4 @@
-import { obj, effect } from "../src/effect";
+import { obj, effect, jobQueue, flushJob } from "../src/effect";
 import { describe, expect, it, vi } from "vitest";
 describe("effect test", () => {
   // it("effect run specified times", () => {
@@ -62,4 +62,40 @@ describe("effect test", () => {
   //   // 由于当前副作用函数和 trigger 触发执行的副作用函数是同一个，做一只执行一遍副作用函数，详情见 ../src/effect.js/trigger 函数
   //   expect(test).toHaveBeenCalledTimes(1);
   // });
+
+  it("副作用函数调度执行", () => {
+    const foo = {
+      fn() {
+        console.log(obj.num);
+      },
+    };
+    const test = vi.spyOn(foo, "fn");
+    effect(foo.fn, {
+      scheduler: (fn) => {
+        setTimeout(fn, 0);
+      },
+    });
+    obj.num++;
+    console.log("结束了");
+    // expect(test).toHaveBeenCalledTimes(2);
+    expect(obj.num).toBe(3); // 调度器函数执行了
+  });
+
+  it("任务队列", () => {
+    const foo = {
+      fn() {
+        console.log(obj.num);
+      },
+    };
+    const test = vi.spyOn(foo, "fn");
+    effect(foo.fn, {
+      scheduler: (fn) => {
+        jobQueue.add(fn);
+        flushJob();
+      },
+    });
+    obj.num++;
+    obj.num++;
+    expect(obj.num).toBe(5); // 只会输出3和5，flushJob 也会同步且连续地执行两次，但由于isFlushing 标志的存在，实际上 flushJob 函数在一个事件循环内只会执行一次，即在微任务队列内执行一次。
+  });
 });

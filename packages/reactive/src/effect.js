@@ -62,7 +62,16 @@ function trigger(target, key) {
         effectsToRun.add(fn);
       }
     });
-  effectsToRun.forEach((fn) => fn());
+  effectsToRun.forEach((effectFn) => {
+    // 如果副作用函数中存在调度器，则调用调度器，并将副作用函数作为参数传递
+    if (effectFn.options.scheduler) {
+      // console.log("调度器执行了");
+      effectFn.options.scheduler(effectFn);
+    } else {
+      // 否则直接执行副作用函数（之前的默认行为）
+      effectFn();
+    }
+  });
   // effects && effects.forEach((fn) => fn());
   return true;
 }
@@ -80,7 +89,7 @@ function cleanup(effectFn) {
 }
 
 // 副作用函数
-export function effect(fn) {
+export function effect(fn, options = {}) {
   // 将副作用函数在原有功能上再封装一层，用来添加新的功能
   const effectFn = () => {
     // 在每次副作用函数 effectFn 调用之前，都进行 cleanup 用于清除依赖
@@ -95,10 +104,26 @@ export function effect(fn) {
     // 并更新 activeEffect 的值为栈顶元素
     activeEffect = effectStack[effectStack.length - 1];
   };
+  // 将 options 挂载到 effectFn 上
+  effectFn.options = options;
+
   // 用来存储所有与当前副作用函数相关联的依赖集合
   // 由于把 effectFn 赋给了 activeEffect ，所以也可以通过 activeEffect 获取到该数组
   effectFn.deps = [];
 
   // 执行副作用函数，保留之前的功能
   effectFn();
+}
+export const jobQueue = new Set();
+const p = Promise.resolve();
+
+let isFlushing = false;
+export function flushJob() {
+  if (isFlushing) return;
+  isFlushing = true;
+  p.then(() => {
+    jobQueue.forEach((job) => job());
+  }).finally(() => {
+    isFlushing = false;
+  });
 }
