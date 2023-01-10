@@ -1,0 +1,23 @@
+{
+  "name": "shr-mini-vue",
+  "version": "1.0.0",
+  "description": "简易版Vue3实现，包含响应式系统，模板编译，diff算法等",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pursuit01/shr-mini-vue.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Pursuit01/shr-mini-vue/issues"
+  },
+  "homepage": "https://github.com/Pursuit01/shr-mini-vue#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "vitest": "^0.22.1"
+  }
+}
