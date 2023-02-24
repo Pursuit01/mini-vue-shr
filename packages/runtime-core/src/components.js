@@ -1,6 +1,9 @@
 import { effect } from "../../reactive/src/effect";
 // TODOS: 还需引入 reactive, patch, shallowReactive,shallowReadonly
 
+// 存储当前正在被初始化的实例对象
+let currentInstance = null;
+
 function mountComponent(vnode, container, anchor) {
   // 获取组件实例对象
   const componentOption = vnode.type;
@@ -44,7 +47,15 @@ function mountComponent(vnode, container, anchor) {
     subTree: null, // 子树
     props: shallowReactive(props), // 组件props，浅响应
     slots,
+    mounted: [],
+    beforeMount: [],
+    beforeUpdate: [],
+    updated: [],
+    beforeUnmount: [],
+    onUnmounted: [],
   };
+  // 在setup函数执行之前设置当前组件实例
+  setCurrentInstance(instance);
 
   // 定义setup函数的上下文对象，作为第二个参数传入
   const setupContext = {
@@ -54,6 +65,9 @@ function mountComponent(vnode, container, anchor) {
   };
   // 调用setup函数，并传递 props 和 setupContext
   const setupResult = setup(shallowReadonly(props), setupContext);
+
+  // setup执行完后，重置当前组件实例
+  setCurrentInstance(null);
 
   // 存储setup返回的数据
   let setupState = null;
@@ -117,18 +131,22 @@ function mountComponent(vnode, container, anchor) {
       if (!instance.isMounted) {
         // 执行生命周期钩子
         beforeMount && beforeMount.call(renderContext);
+        instance.beforeMount && instance.beforeMount.forEach((fn) => fn());
 
         patch(null, subTree, container, anchor);
 
         // 执行mounted
+        instance.mounted && instance.mounted.forEach((fn) => fn());
         mounted && mounted.call(renderContext);
 
         // 将组件状态更新为已挂载
         instance.isMounted = true;
       } else {
+        instance.beforeUpdate && instance.beforeUpdate.forEach((fn) => fn());
         beforeUpdate && beforeUpdate.call(renderContext);
         // 如果已挂载，对比旧子树 instance.subTree 与新子树 subTree,进行打补丁操作
         patch(instance.subTree, subTree, container, anchor);
+        instance.updated && instance.updated.forEach((fn) => fn());
         updated && updated.call(renderContext);
       }
 
@@ -177,4 +195,51 @@ function resolveProps(propsOption, propsData) {
     }
   }
   return [props, attrs];
+}
+
+function setCurrentInstance(instance) {
+  currentInstance = instance;
+}
+
+function onMounted(fn) {
+  if (currentInstance) {
+    currentInstance.mounted.push(fn);
+  } else {
+    console.error("onMounted 函数只能在 setup 中调用");
+  }
+}
+function onBeforeMount(fn) {
+  if (currentInstance) {
+    currentInstance.beforeMount.push(fn);
+  } else {
+    console.error("onBeforeMount 函数只能在 setup 中调用");
+  }
+}
+function onUpdated(fn) {
+  if (currentInstance) {
+    currentInstance.updated.push(fn);
+  } else {
+    console.error("onUpdated 函数只能在 setup 中调用");
+  }
+}
+function onBeforeUpdate(fn) {
+  if (currentInstance) {
+    currentInstance.beforeUpdate.push(fn);
+  } else {
+    console.error("onBeforeUpdate 函数只能在 setup 中调用");
+  }
+}
+function onUnmounted(fn) {
+  if (currentInstance) {
+    currentInstance.unmounted.push(fn);
+  } else {
+    console.error("onUnmounted 函数只能在 setup 中调用");
+  }
+}
+function onBeforeUnmount(fn) {
+  if (currentInstance) {
+    currentInstance.beforeUnmount.push(fn);
+  } else {
+    console.error("onBeforeUnmount 函数只能在 setup 中调用");
+  }
 }
