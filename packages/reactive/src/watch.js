@@ -42,6 +42,7 @@ export function watch(source, cb, options = {}) {
     }
   );
 
+  // watch 初始化
   // 如果 options 传入了 immediate，则立即执行一次回调
   if (options.immediate) {
     // 此时 oldValue 为 null
@@ -51,6 +52,10 @@ export function watch(source, cb, options = {}) {
     oldValue = effectFn();
   }
 }
+// 工具函数，获取 x 的类型
+function classOf(x) {
+  return Object.prototype.toString.call(x).slice(8, -1);
+}
 function traverse(value, seen = new Set()) {
   // 如果是基本数据类型 或者 为null 或者 已经读取过了，直接return
   if (typeof value != "object" || value === null || seen.has(value)) {
@@ -59,11 +64,11 @@ function traverse(value, seen = new Set()) {
   // 强行读取一遍value
   seen.add(value);
   // 如果是数组，使用for...of遍历一次
-  if (value instanceof Array) {
+  if (classOf(value) == "Array") {
     for (const it of value) {
       traverse(it, seen);
     }
-  } else if (typeof value === "object") {
+  } else if (classOf(value) == "Object") {
     // 如果是对象，使用for...in遍历一次
     for (const k in value) {
       traverse(value[k], seen);
