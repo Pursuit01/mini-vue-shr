@@ -1,5 +1,5 @@
 import { effect } from "../../reactive/src/effect";
-// TODOS: 还需引入 reactive, patch, shallowReactive,
+// TODOS: 还需引入 reactive, patch, shallowReactive,shallowReadonly
 
 function mountComponent(vnode, container, anchor) {
   // 获取组件实例对象
@@ -16,13 +16,11 @@ function mountComponent(vnode, container, anchor) {
     beforeUpdate,
     updated,
     props: propsOption,
+    setup,
   } = componentOption;
 
-  // 先调用 beforeCreate 钩子
-  beforeCreate && beforeCreate();
-
   // 调用data()函数并使用reactive处理，获取响应式对象state
-  const state = reactive(data());
+  const state = data ? reactive(data()) : null;
   // 解析props和attrs
   const [props, attrs] = resolveProps(propsOption, vnode.props);
 
@@ -33,6 +31,39 @@ function mountComponent(vnode, container, anchor) {
     subTree: null, // 子树
     props: shallowReactive(props), // 组件props，浅响应
   };
+
+  // 定义emit函数
+  function emit(event, ...payload) {
+    const eventName = `on${event[0].toUpperCase() + event.slice(1)}`;
+    const handler = instance.props[eventName];
+    if (handler) {
+      handler(...payload);
+    } else {
+      console.error("事件不存在");
+    }
+  }
+
+  // 定义setup函数的上下文对象，作为第二个参数传入
+  const setupContext = {
+    attrs,
+    emit,
+  };
+  // 调用setup函数，并传递 props 和 setupContext
+  const setupResult = setup(shallowReadonly(props), setupContext);
+
+  // 存储setup返回的数据
+  let setupState = null;
+  if (typeof setupResult == "function") {
+    if (render) {
+      console.error("setup返回函数，render选项将被忽略");
+    } else {
+      // 如果 setup 返回值不是函数，则作为数据状态赋给 setupState
+      setupState = setupResult;
+    }
+  }
+
+  // 先调用 beforeCreate 钩子
+  beforeCreate && beforeCreate();
 
   // 在vnode上添加针对组件实例的引用
   vnode.component = instance;
@@ -47,6 +78,9 @@ function mountComponent(vnode, container, anchor) {
         return Reflect.get(state, k);
       } else if (props && k in props) {
         return Reflect.get(props, k);
+      } else if (setupState && k in setupState) {
+        // 渲染上下文需要增加对 setupState 的支持
+        return Reflect.get(setupState, k);
       } else {
         console.log("属性不存在");
       }
@@ -54,9 +88,11 @@ function mountComponent(vnode, container, anchor) {
     set(t, k, v, r) {
       const { state, props } = t;
       if (state && k in state) {
-        state[k] = v;
+        Reflect.set(state, k, v);
       } else if (props && k in props) {
         console.warn(`子组件无法修改父组件的props ${k}`);
+      } else if (setupState && k in setupState) {
+        Reflect.set(setupState, k, v);
       } else {
         console.log("属性不存在");
       }
@@ -127,7 +163,8 @@ function resolveProps(propsOption, propsData) {
   const props = {};
   const attrs = {};
   for (const key in propsData) {
-    if (key in propsOption) {
+    // 只要以on开头的属性，都作为props处理（这里默认在处理模板时，将事件前的 @ 符转为 on 了）
+    if (key in propsOption || key.startsWith("on")) {
       props[key] = propsData[key];
     } else {
       attrs[key] = propsData[key];
