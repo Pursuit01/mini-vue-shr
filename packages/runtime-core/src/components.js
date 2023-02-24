@@ -24,14 +24,6 @@ function mountComponent(vnode, container, anchor) {
   // 解析props和attrs
   const [props, attrs] = resolveProps(propsOption, vnode.props);
 
-  // 定义一个组件实例，一个组件实际上就是一个对象，它包含了与组件相关的状态信息
-  const instance = {
-    state,
-    isMounted: false, // 是否挂载
-    subTree: null, // 子树
-    props: shallowReactive(props), // 组件props，浅响应
-  };
-
   // 定义emit函数
   function emit(event, ...payload) {
     const eventName = `on${event[0].toUpperCase() + event.slice(1)}`;
@@ -42,11 +34,23 @@ function mountComponent(vnode, container, anchor) {
       console.error("事件不存在");
     }
   }
+  // 定义插槽对象
+  const slots = vnode.children || {};
+
+  // 定义一个组件实例，一个组件实际上就是一个对象，它包含了与组件相关的状态信息
+  const instance = {
+    state,
+    isMounted: false, // 是否挂载
+    subTree: null, // 子树
+    props: shallowReactive(props), // 组件props，浅响应
+    slots,
+  };
 
   // 定义setup函数的上下文对象，作为第二个参数传入
   const setupContext = {
     attrs,
     emit,
+    slots,
   };
   // 调用setup函数，并传递 props 和 setupContext
   const setupResult = setup(shallowReadonly(props), setupContext);
@@ -81,6 +85,8 @@ function mountComponent(vnode, container, anchor) {
       } else if (setupState && k in setupState) {
         // 渲染上下文需要增加对 setupState 的支持
         return Reflect.get(setupState, k);
+      } else if (k == "$slots") {
+        return slots;
       } else {
         console.log("属性不存在");
       }
