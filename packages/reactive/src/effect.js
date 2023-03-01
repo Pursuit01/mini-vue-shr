@@ -32,7 +32,7 @@ export function track(target, key) {
   activeEffect.deps.push(deps);
 }
 
-export function trigger(target, key, type) {
+export function trigger(target, key, type, newVal) {
   const depsMap = bucket.get(target);
   if (!depsMap) return;
   // 取得与 key 相关联的副作用函数
@@ -53,6 +53,29 @@ export function trigger(target, key, type) {
           effectsToRun.add(fn);
         }
       });
+  }
+
+  // 如果数组元素变化，与length相关的副作用函数也应该执行
+  if (Array.isArray(target) && type == TriggerType.ADD) {
+    const lengthEffects = depsMap.get("length");
+    lengthEffects &&
+      lengthEffects.forEach((fn) => {
+        if (fn != activeEffect) {
+          effectsToRun.add(fn);
+        }
+      });
+  }
+  // 如果数组length变化，数组索引值大于等于length的元素相关的副作用也应该变化
+  if (Array.isArray(target) && key == "length") {
+    depsMap.forEach((effects, key) => {
+      if (key >= newVal) {
+        effects.forEach((fn) => {
+          if (fn !== activeEffect) {
+            effectsToRun.add(fn);
+          }
+        });
+      }
+    });
   }
 
   // 将与 key 相关联的副作用函数添加到 effectsToRun
@@ -174,7 +197,13 @@ export function createReactive(data, isShallow = false, isReadonly = false) {
       // 获取旧值
       const oldVal = target[key];
       // 判断是 新增属性 还是 修改属性
-      const type = Object.prototype.hasOwnProperty.call(target, key)
+      // 判断如果target是数组，则检测索引值是否小于数组长度，
+      // 如果是，则视作 SET 操作, 否则是 ADD 操作
+      const type = Array.isArray(target)
+        ? Number(key) >= target.length
+          ? TriggerType.ADD
+          : TriggerType.SET
+        : Object.prototype.hasOwnProperty.call(target, key)
         ? TriggerType.SET
         : TriggerType.ADD;
 
@@ -182,7 +211,7 @@ export function createReactive(data, isShallow = false, isReadonly = false) {
       if (receiver.raw === target) {
         // 属性被修改时(旧值与新值不同 或者 二者不都是NaN时)，触发追踪的副作用函数重新执行
         if (oldVal !== value && (oldVal === oldVal || value === value)) {
-          trigger(target, key, type);
+          trigger(target, key, type, value);
         }
       }
       return res;
