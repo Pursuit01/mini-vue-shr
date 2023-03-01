@@ -1,8 +1,20 @@
-import { obj, effect } from "../src/effect";
+import { effect } from "../src/effect";
 import { computed } from "../src/computed";
+import { reactive } from "../src/reactive";
 
 import { describe, expect, it, vi } from "vitest";
+// 测试数据
+const data = {
+  ok: true,
+  text: "hello, world",
+  title: "title",
+  num: 2,
+  bar: 2,
+  foo: "foo",
+};
+
 describe("计算属性", () => {
+  const obj = reactive(data);
   it("测试计算属性", () => {
     let effectFn = effect(() => obj.bar * 2, {
       lazy: true,

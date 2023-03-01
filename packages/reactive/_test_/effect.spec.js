@@ -1,6 +1,20 @@
-import { obj, effect, jobQueue, flushJob } from "../src/effect";
+import { effect, jobQueue, flushJob } from "../src/effect";
 import { describe, expect, it, vi } from "vitest";
+import { reactive } from "../src/reactive";
+
+// 测试数据
+const data = {
+  ok: true,
+  text: "hello, world",
+  title: "title",
+  num: 2,
+  bar: 2,
+  foo: "foo",
+};
+
 describe("effect test", () => {
+  const obj = reactive(data);
+
   it("effect run specified times", () => {
     const foo = {
       fn() {

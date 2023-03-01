@@ -1,3 +1,5 @@
+import { RAW, ITERATE_KEY, TriggerType } from "./const";
+import { reactive, readonly } from "./reactive";
 // WeakMap优点：一旦 target 被 GC，weakmap 的 key 和 value 就都访问不到了，防止内存泄漏
 /**
  * new WeakMap()
@@ -8,68 +10,11 @@
  */
 const bucket = new WeakMap();
 
-// 测试数据
-const data = {
-  ok: true,
-  text: "hello, world",
-  title: "title",
-  num: 2,
-  bar: 2,
-  foo: "foo",
-};
-
 // 全局变量用来存储 副作用函数
 let activeEffect = null;
 
 // 定义 effect 栈，用于解决副作用函数嵌套的情况，activeEffect 始终指向栈顶元素
 let effectStack = [];
-const ITERATE_KEY = Symbol();
-const TriggerType = {
-  SET: "SET",
-  ADD: "ADD",
-  DELETE: "DELETE",
-};
-export const obj = new Proxy(data, {
-  // 拦截属性的读取操作
-  get(target, key, receiver) {
-    // 追踪属性读取操作
-    track(target, key);
-    return Reflect.get(target, key, receiver);
-  },
-  set(target, key, value, receiver) {
-    // 判断是 新增属性 还是 修改属性
-    const type = Object.prototype.hasOwnProperty.call(target, key)
-      ? TriggerType.SET
-      : TriggerType.ADD;
-    const res = Reflect.set(target, key, value, receiver);
-    // 属性被修改时，触发追踪的副作用函数重新执行
-    trigger(target, key, type);
-    return res;
-  },
-  // 用于拦截 in 操作
-  has(target, key) {
-    track(target, key);
-    return Reflect.has(target, key);
-  },
-  // 用于拦截for...in
-  ownKeys(target) {
-    // 将副作用函数与 ITERATE_KEY 关联
-    track(target, ITERATE_KEY);
-    return Reflect.ownKeys(target, ITERATE_KEY);
-  },
-  // 代理属性的删除操作
-  deleteProperty(target, key) {
-    // 判断 key 是否 target 自身上的属性
-    const hadKey = Object.prototype.hasOwnProperty.call(target, key);
-    // 判断是否删除成功
-    const res = Reflect.deleteProperty(target, key);
-    if (res && hadKey) {
-      // 只有当删除成功且是自己的属性时，才触发更新
-      trigger(target, key, TriggerType.DELETE);
-    }
-    return res;
-  },
-});
 
 export function track(target, key) {
   if (!activeEffect) return;
@@ -93,6 +38,10 @@ export function trigger(target, key, type) {
   // 取得与 key 相关联的副作用函数
   const effects = depsMap.get(key);
 
+  // 将 effects 拷贝一份再遍历，防止 forEach 时出现 栈溢出
+  // const effectsToRun = new Set(effects);
+  const effectsToRun = new Set();
+
   // 当新增属性时，执行与 ITERATE_KEY 相关联的副作用函数
   if (type == TriggerType.ADD || type == TriggerType.DELETE) {
     // 取得与 ITERATE_KEY 相关联的副作用函数
@@ -106,9 +55,6 @@ export function trigger(target, key, type) {
       });
   }
 
-  // 将 effects 拷贝一份再遍历，防止 forEach 时出现 栈溢出
-  // const effectsToRun = new Set(effects);
-  const effectsToRun = new Set();
   // 将与 key 相关联的副作用函数添加到 effectsToRun
   effects &&
     effects.forEach((fn) => {
@@ -190,5 +136,83 @@ export function flushJob() {
     jobQueue.forEach((job) => job());
   }).finally(() => {
     isFlushing = false;
+  });
+}
+
+// 响应式函数
+export function createReactive(data, isShallow = false, isReadonly = false) {
+  return new Proxy(data, {
+    // 拦截属性的读取操作
+    get(target, key, receiver) {
+      // 允许代理对象通过 raw 属性获取原始对象
+      if (key == RAW) {
+        return target;
+      }
+
+      // 非只读时才需要建立响应联系
+      if (!isReadonly) {
+        // 追踪属性读取操作
+        track(target, key);
+      }
+      const res = Reflect.get(target, key, receiver);
+
+      // 如果是浅响应，直接返回原始值
+      if (isShallow) {
+        return res;
+      }
+      // 如果对象的属性仍是对象，则递归调用reactive，返回深层次的响应式对象
+      if (typeof res === "object" && res !== null) {
+        return isReadonly ? readonly(res) : reactive(res);
+      }
+      return res;
+    },
+    set(target, key, value, receiver) {
+      if (isReadonly) {
+        console.warn(`属性 ${key} 是只读的`);
+        return true;
+      }
+      // 获取旧值
+      const oldVal = target[key];
+      // 判断是 新增属性 还是 修改属性
+      const type = Object.prototype.hasOwnProperty.call(target, key)
+        ? TriggerType.SET
+        : TriggerType.ADD;
+
+      const res = Reflect.set(target, key, value, receiver);
+      if (receiver.raw === target) {
+        // 属性被修改时(旧值与新值不同 或者 二者不都是NaN时)，触发追踪的副作用函数重新执行
+        if (oldVal !== value && (oldVal === oldVal || value === value)) {
+          trigger(target, key, type);
+        }
+      }
+      return res;
+    },
+    // 用于拦截 in 操作
+    has(target, key) {
+      track(target, key);
+      return Reflect.has(target, key);
+    },
+    // 用于拦截for...in
+    ownKeys(target) {
+      // 将副作用函数与 ITERATE_KEY 关联
+      track(target, ITERATE_KEY);
+      return Reflect.ownKeys(target, ITERATE_KEY);
+    },
+    // 用于拦截属性删除操作
+    deleteProperty(target, key) {
+      if (isReadonly) {
+        console.warn(`属性 ${key} 是只读的`);
+        return true;
+      }
+      // 判断 key 是否 target 自身上的属性
+      const hadKey = Object.prototype.hasOwnProperty.call(target, key);
+      // 判断是否删除成功
+      const res = Reflect.deleteProperty(target, key);
+      if (res && hadKey) {
+        // 只有当删除成功且是自己的属性时，才触发更新
+        trigger(target, key, TriggerType.DELETE);
+      }
+      return res;
+    },
   });
 }
