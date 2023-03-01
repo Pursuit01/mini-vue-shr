@@ -23,18 +23,51 @@ let activeEffect = null;
 
 // 定义 effect 栈，用于解决副作用函数嵌套的情况，activeEffect 始终指向栈顶元素
 let effectStack = [];
-
+const ITERATE_KEY = Symbol();
+const TriggerType = {
+  SET: "SET",
+  ADD: "ADD",
+  DELETE: "DELETE",
+};
 export const obj = new Proxy(data, {
   // 拦截属性的读取操作
-  get(target, key) {
+  get(target, key, receiver) {
     // 追踪属性读取操作
     track(target, key);
-    return target[key];
+    return Reflect.get(target, key, receiver);
   },
-  set(target, key, value) {
-    target[key] = value;
+  set(target, key, value, receiver) {
+    // 判断是 新增属性 还是 修改属性
+    const type = Object.prototype.hasOwnProperty.call(target, key)
+      ? TriggerType.SET
+      : TriggerType.ADD;
+    const res = Reflect.set(target, key, value, receiver);
     // 属性被修改时，触发追踪的副作用函数重新执行
-    return trigger(target, key);
+    trigger(target, key, type);
+    return res;
+  },
+  // 用于拦截 in 操作
+  has(target, key) {
+    track(target, key);
+    return Reflect.has(target, key);
+  },
+  // 用于拦截for...in
+  ownKeys(target) {
+    // 将副作用函数与 ITERATE_KEY 关联
+    track(target, ITERATE_KEY);
+    return Reflect.ownKeys(target, ITERATE_KEY);
+  },
+  // 代理属性的删除操作
+  deleteProperty(target, key) {
+    // 判断 key 是否 target 自身上的属性
+    const hadKey = Object.prototype.hasOwnProperty.call(target, key);
+    // 判断是否删除成功
+    const res = Reflect.deleteProperty(target, key);
+    if (res && hadKey) {
+      // 只有当删除成功且是自己的属性时，才触发更新
+      trigger(target, key, TriggerType.DELETE);
+    }
+    return res;
   },
 });
 
@@ -54,14 +87,29 @@ export function track(target, key) {
   activeEffect.deps.push(deps);
 }
 
-export function trigger(target, key) {
+export function trigger(target, key, type) {
   const depsMap = bucket.get(target);
   if (!depsMap) return;
+  // 取得与 key 相关联的副作用函数
   const effects = depsMap.get(key);
+
+  // 当新增属性时，执行与 ITERATE_KEY 相关联的副作用函数
+  if (type == TriggerType.ADD || type == TriggerType.DELETE) {
+    // 取得与 ITERATE_KEY 相关联的副作用函数
+    const iterateEffects = depsMap.get(ITERATE_KEY);
+    // 将与 ITERATE_KEY 相关联的副作用函数添加到 effectsToRun
+    iterateEffects &&
+      iterateEffects.forEach((fn) => {
+        if (fn !== activeEffect) {
+          effectsToRun.add(fn);
+        }
+      });
+  }
 
   // 将 effects 拷贝一份再遍历，防止 forEach 时出现 栈溢出
   // const effectsToRun = new Set(effects);
   const effectsToRun = new Set();
+  // 将与 key 相关联的副作用函数添加到 effectsToRun
   effects &&
     effects.forEach((fn) => {
       // 添加守卫条件，处理在副作用函数中对某个属性同时进行读取和修改操作
@@ -70,6 +118,7 @@ export function trigger(target, key) {
         effectsToRun.add(fn);
       }
     });
+
   effectsToRun.forEach((effectFn) => {
     // 如果副作用函数中存在调度器，则调用调度器，并将副作用函数作为参数传递
     if (effectFn.options.scheduler) {
@@ -81,7 +130,6 @@ export function trigger(target, key) {
     }
   });
   // effects && effects.forEach((fn) => fn());
-  return true;
 }
 
 // 注意 此时 cleanup 操作了 bucket 中的 set 集合
