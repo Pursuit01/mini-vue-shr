@@ -1,8 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
-import { obj, effect } from "../src/effect";
+import { effect } from "../src/effect";
+import { reactive } from "../src/reactive";
 import { watch } from "../src/watch";
-
+// 测试数据
+const data = {
+  ok: true,
+  text: "hello, world",
+  title: "title",
+  num: 2,
+  bar: 2,
+  foo: "foo",
+};
 describe("测试watch", () => {
+  const obj = reactive(data);
+
   it("测试watch监听对象", () => {
     watch(
       obj,
