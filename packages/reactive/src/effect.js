@@ -222,6 +222,11 @@ export function createReactive(data, isShallow = false, isReadonly = false) {
       if (Array.isArray(target) && arrayInstrumentations.hasOwnProperty(key)) {
         return Reflect.get(arrayInstrumentations, key, receiver);
       }
+      // 如果读取的属性是 size ，通过指定第三个参数更改this指向原始对象。
+      // 因为当原始对象是 Set 集合时，无法通过与之对应的代理对象获取size属性，只能从原始对象上获取
+      if (key == "size") {
+        return Reflect.get(target, key, target);
+      }
 
       // 如果对象是只读的 或者 key 的类型是 symbol ，则不进行追踪
       if (!isReadonly || typeof key !== "symbol") {

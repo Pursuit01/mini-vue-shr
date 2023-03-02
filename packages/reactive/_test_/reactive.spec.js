@@ -116,4 +116,10 @@ describe("reactive", () => {
     });
     expect(arr.length).toBe(2);
   });
+
+  it("测试set对象的size属性", () => {
+    const set = new Set();
+    const res = reactive(set);
+    expect(res.size).toBe(0);
+  });
 });
