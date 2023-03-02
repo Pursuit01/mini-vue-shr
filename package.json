@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "简易版Vue3实现，是深入阅读 《Vue.js设计与实现》 后的产物，感兴趣的读者可自行参考。",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "vitest"
   },

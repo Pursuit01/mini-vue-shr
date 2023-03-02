@@ -196,11 +196,17 @@ function resolveProps(propsOption, propsData) {
   }
   return [props, attrs];
 }
-
+/**
+ * 设置当前实例对象
+ * @param {*} instance 当前实例
+ */
 function setCurrentInstance(instance) {
   currentInstance = instance;
 }
-
+/**
+ * 生命周期钩子
+ * @param {*} fn
+ */
 function onMounted(fn) {
   if (currentInstance) {
     currentInstance.mounted.push(fn);
