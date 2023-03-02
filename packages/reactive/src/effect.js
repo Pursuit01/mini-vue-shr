@@ -234,6 +234,7 @@ export function createReactive(data, isShallow = false, isReadonly = false) {
         track(target, key);
       }
       const res = Reflect.get(target, key, receiver);
+      // const res = target[key].bind(target);
 
       // 如果是浅响应，直接返回原始值
       if (isShallow) {
