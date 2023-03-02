@@ -4,7 +4,8 @@
   "description": "简易版Vue3实现，包含响应式系统，模板编译，diff算法等",
   "main": "index.js",
   "scripts": {
-    "test": "vitest"
+    "test": "vitest",
+    "start": "webpack"
   },
   "repository": {
     "type": "git",
@@ -18,6 +19,8 @@
   "homepage": "https://github.com/Pursuit01/shr-mini-vue#readme",
   "dependencies": {},
   "devDependencies": {
-    "vitest": "^0.22.1"
+    "vitest": "^0.22.1",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.1"
   }
 }

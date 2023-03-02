@@ -10,16 +10,7 @@
 
 <body>
   <div id="app"></div>
-  <script type="module">
-    import { renderer } from './packages/runtime-core/src/renderer.js'
-    import { effect } from './packages/reactive/src/effect.js'
-    import { ref } from './packages/reactive/src/reactive.js'
-    const count = ref(1);
-    effect(() => {
-      renderer(`<h1>${count}</h1>`, document.getElementById("app"));
-    });
-    count.value++;
-  </script>
+  <script src="/dist/bundle.js"></script>
 </body>
 
 </html>
