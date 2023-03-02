@@ -1,5 +1,6 @@
 import { RAW, ITERATE_KEY, TriggerType } from "./const";
 import { reactive, readonly } from "./reactive";
+
 // WeakMap优点：一旦 target 被 GC，weakmap 的 key 和 value 就都访问不到了，防止内存泄漏
 /**
  * new WeakMap()
@@ -16,8 +17,52 @@ let activeEffect = null;
 // 定义 effect 栈，用于解决副作用函数嵌套的情况，activeEffect 始终指向栈顶元素
 let effectStack = [];
 
+// 重写数组的方法
+const arrayInstrumentations = {};
+["includes", "indexOf", "lastIndexOf"].forEach((method) => {
+  // 获取原始方法
+  const originMethod = Array.prototype[method];
+  arrayInstrumentations[method] = function (...args) {
+    // this 指的是代理对象
+    let res = originMethod.call(this, ...args);
+    if (res === false || res === -1) {
+      res = originMethod.call(this.raw, ...args);
+    }
+    return res;
+  };
+});
+
+// 一个标记变量，代表是否进行追踪，默认值为true ，即允许追踪
+let shouldTrack = true;
+// 重写数组的push等方法(数组的 push 等方法在语义上是修改操作，而非读取操作，所以避免建立响应联系并不会产生其他副作用)
+["push", "pop", "shift", "unshift", "splice"].forEach((method) => {
+  const originMethod = Array.prototype[method];
+  arrayInstrumentations[method] = function (...args) {
+    // 在调用原始方法之前禁止追踪
+    shouldTrack = false;
+    // push 等方法的默认行为
+    let res = originMethod.call(this, ...args);
+    // 调用原始方法之后，恢复默认的行为，即允许追踪
+    shouldTrack = true;
+    return res;
+  };
+});
+
+// const arrayInstrumentations = {
+//   includes(...args) {
+//     // this 指的是代理对象
+//     let res = originMethod.includes.call(this, ...args);
+//     if (res === false) {
+//       // 如果在代理对象中没找到，通过this.raw 拿到原始对象，再去其中查找并更新res的值
+//       res = originMethod.includes.call(this.raw, ...args);
+//     }
+//     return res;
+//   },
+// };
+
 export function track(target, key) {
-  if (!activeEffect) return;
+  // 当禁止追踪时，直接返回
+  if (!activeEffect || !shouldTrack) return;
   let depsMap = bucket.get(target);
   if (!depsMap) {
     bucket.set(target, (depsMap = new Map()));
@@ -172,8 +217,14 @@ export function createReactive(data, isShallow = false, isReadonly = false) {
         return target;
       }
 
-      // 非只读时才需要建立响应联系
-      if (!isReadonly) {
+      // 如果target是数组，并且key存在于 arrayInstrumentations 上，
+      // 那么返回 arrayInstrumentations 上的值
+      if (Array.isArray(target) && arrayInstrumentations.hasOwnProperty(key)) {
+        return Reflect.get(arrayInstrumentations, key, receiver);
+      }
+
+      // 如果对象是只读的 或者 key 的类型是 symbol ，则不进行追踪
+      if (!isReadonly || typeof key !== "symbol") {
         // 追踪属性读取操作
         track(target, key);
       }
@@ -183,6 +234,7 @@ export function createReactive(data, isShallow = false, isReadonly = false) {
       if (isShallow) {
         return res;
       }
+
       // 如果对象的属性仍是对象，则递归调用reactive，返回深层次的响应式对象
       if (typeof res === "object" && res !== null) {
         return isReadonly ? readonly(res) : reactive(res);
@@ -221,10 +273,12 @@ export function createReactive(data, isShallow = false, isReadonly = false) {
       track(target, key);
       return Reflect.has(target, key);
     },
-    // 用于拦截for...in
+    // 用于拦截对象或数组的for...in操作
     ownKeys(target) {
-      // 将副作用函数与 ITERATE_KEY 关联
-      track(target, ITERATE_KEY);
+      // 将副作用函数与 ITERATE_KEY 关联,
+      // 如果是数组，则使用 length 作为key建立响应联系，
+      // 只要数组长度修改，就触发与 for...in 有关的副作用函数
+      track(target, Array.isArray(target) ? "length" : ITERATE_KEY);
       return Reflect.ownKeys(target, ITERATE_KEY);
     },
     // 用于拦截属性删除操作

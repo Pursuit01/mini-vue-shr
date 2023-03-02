@@ -72,4 +72,48 @@ describe("reactive", () => {
     data.foo.bar = 100; // 无法修改并报错
     expect(data.foo.bar).toBe(1);
   });
+
+  it("手动实现数组迭代器方法", () => {
+    const arr = [1, 2, 3, 4, 5];
+    arr[Symbol.iterator] = function () {
+      let target = this;
+      let length = target.length;
+      let index = 0;
+      return {
+        next() {
+          return {
+            value: index < length ? arr[index] : undefined,
+            done: index++ >= length,
+          };
+        },
+      };
+    };
+    for (const it of arr) {
+      console.log(it);
+    }
+  });
+
+  it("测试数组的includes方法", () => {
+    const obj = {};
+    const arr = reactive([obj]);
+    expect(arr.includes(arr[0])).toBe(true);
+  });
+
+  it("测试数组的includes方法2", () => {
+    const obj = {};
+    const originArr = [obj];
+    const arr = reactive(originArr);
+    // 重写了数组的 includes 方法，如果在代理对象 arr 上查找不到，就去原始对象 originArr 上查找
+    expect(arr.includes(obj)).toBe(true);
+  });
+  it("测试push方法", () => {
+    const arr = reactive([]);
+    effect(() => {
+      arr.push(1);
+    });
+    effect(() => {
+      arr.push(1);
+    });
+    expect(arr.length).toBe(2);
+  });
 });
