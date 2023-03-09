@@ -20,10 +20,10 @@ export function createRenderer(options = {}) {
     // 处理子节点，如果子节点是字符串，代表元素具有文本节点
     if (typeof children === "string") {
       // 调用 setElementText 设置元素的文本节点
-      setElementText(el, children);
+      setElementText(el.tag, children);
     }
     // 调用 insert 函数将元素插入到容器中
-    insert(el, container);
+    insert(el.tag, container.type);
   }
 
   // 渲染器的入口
