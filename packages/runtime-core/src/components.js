@@ -75,11 +75,11 @@ function mountComponent(vnode, container, anchor) {
   if (typeof setupResult == "function") {
     if (render) {
       console.error("setup返回函数，render选项将被忽略");
-    } else {
-      // 如果 setup 返回值不是函数，则作为数据状态赋给 setupState
-      // 使用 proxyRefs 处理 setup 返回的数据，这样在模板中使用就不必一直.value 了。
-      setupState = proxyRefs({ ...toRefs(setupResult) });
     }
+  } else {
+    // 如果 setup 返回值不是函数，则作为数据状态赋给 setupState
+    // 使用 proxyRefs 处理 setup 返回的数据，这样在模板中使用就不必一直.value 了。
+    setupState = proxyRefs({ ...toRefs(setupResult) });
   }
 
   // 先调用 beforeCreate 钩子
