@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createRenderer } from "../src/renderer";
+import { createRenderer, normalizeClass } from "../src/renderer";
 import { ref } from "../../reactive/src/reactive";
 import { effect } from "../../reactive/src/effect";
 const options = {
@@ -44,5 +44,17 @@ describe("测试 renderer 渲染函数", () => {
      * 将 h1 的文本设置为 hello
      * 将 h1 插入到 root 中
      */
+  });
+
+  it("测试 normalizeClass 函数", () => {
+    const classList = [
+      "foo bar",
+      {
+        baz: true,
+        red: false,
+      },
+    ];
+    const classRes = normalizeClass(classList);
+    console.log(classRes); // 输出： 'foo bar baz'
   });
 });
