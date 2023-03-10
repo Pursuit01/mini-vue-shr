@@ -35,6 +35,9 @@ export function createRenderer(
           // 如果没有 invoker，则将一个伪造的invoker缓存到 el._vei 上
           if (!invoker) {
             invoker = el._vei[key] = (e) => {
+              // 如果事件发生时间早于事件处理函数绑定的事件, 则不执行事件处理函数
+              if (e.timeStamp < invoker.attached) return;
+
               // 当同一时间上含有多个处理函数时, newValue 会是一个数组,此时需要逐一执行
               // 注意这里的 invoker.value 其实等价于 newValue,因为下面会进行赋值操作,而且invoker真正执行实际是在赋值操作之后的
               if (Array.isArray(invoker.value)) {
@@ -46,6 +49,9 @@ export function createRenderer(
             };
             // 将真正的事件处理函数赋给 .value
             invoker.value = newValue;
+
+            // 添加 invoker.attacched 属性, 存储事件处理函数被绑定的时间
+            invoker.attached = performance.now();
             // 绑定invoker作为事件处理函数，这样的好处是当时间更新时，无需进行s事件卸载操作，只需修改 invoker.value 即可。
             el.addEventListener(name, invoker);
           } else {

@@ -20,3 +20,8 @@
 - 组件生命周期钩子处理
 - 组件 setup 函数处理及 props，renderContext 处理
 - 组件实例 instance 处理
+
+#### need marker or review
+
+- set集合的拦截操作
+- 事件冒泡与更新时机问题
