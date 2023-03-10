@@ -1,4 +1,3 @@
-import { wrap } from "module";
 import { createReactive } from "./effect";
 
 // 创建一个原始对象与代理对象的映射
