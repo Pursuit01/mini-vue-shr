@@ -126,6 +126,7 @@ export function createRenderer(
       }
     }
 
+    // 扩展: 提前规定子节点 children 的类型有三种: null 为没有子节点  string 为文本子节点  数组 为多个子节点
     // 处理子节点，如果子节点是字符串，代表元素具有文本节点
     if (typeof children === "string") {
       // 调用 setElementText 设置元素的文本节点
@@ -138,6 +139,29 @@ export function createRenderer(
     }
     // 调用 insert 函数将元素插入到容器中
     insert(el, container);
+  }
+
+  // 补丁函数
+  function patchElement(n1, n2) {
+    // 此处n1,n2之所以存在 el 属性,
+    // 是因为所有元素在执行 mountElement 首次挂载时,都会为vnode.el指向真实 DOM 元素
+    const el = (n2.el = n1.el);
+    const oldProps = n1.props;
+    const newProps = n2.props;
+    // 更新props
+    for (const key in newProps) {
+      if (oldProps[key] !== newProps[key]) {
+        patchProps(el, key, oldProps[key], newProps[key]);
+      }
+    }
+    for (const key in oldProps) {
+      if (!(key in newProps)) {
+        patchProps(el, key, oldProps[key], null);
+      }
+    }
+
+    // 更新children
+    patchChildren(n1, n2, el);
   }
 
   // 渲染器的入口
