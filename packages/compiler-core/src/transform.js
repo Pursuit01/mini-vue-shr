@@ -53,11 +53,19 @@ export function dump(node, indent = 0) {
 export function traverseNode(ast, context) {
   context.currentNode = ast;
 
+  // 增加退出阶段的回调函数数组
+  const exitFns = [];
+
   // context.nodeTransforms 是一个数组，其中每个元素都是一个函数
   const transforms = context.nodeTransforms;
   for (let i = 0; i < transforms.length; i++) {
     // 将当前节点currentNode 和 context 都传递给 nodeTransforms 中注册的回调函数
-    transforms[i](context.currentNode, context);
+    // transforms[i](context.currentNode, context);
+    // 将退出阶段的回调函数添加到 exitFns 数组中
+    const onExit = transforms[i](context.currentNode, context);
+    if (onExit) {
+      exitFns.push(onExit);
+    }
 
     // 如果执行完某次转换函数后，当前节点不存在了，那么后续的转换函数就不需要再执行，直接 return
     if (!context.currentNode) return;
@@ -70,22 +78,33 @@ export function traverseNode(ast, context) {
       traverseNode(children[i], context);
     }
   }
+  // 在节点处理的最后阶段执行缓存到 exitFns 的回调函数
+  // 注意，这里要反序执行，这样才能保证执行当前节点的转换函数时，其所有子节点的转换函数已经全部执行过了。
+  let i = exitFns.length;
+  while (i--) {
+    exitFns[i]();
+  }
 }
 
 function transformElement(node) {
-  if (node.type === "Element" && node.tag === "p") {
-    node.tag = "h1";
-  }
+  // 处理转换函数的工作流，返回一个会在退出阶段执行的回调函数
+  return () => {
+    if (node.type === "Element" && node.tag === "p") {
+      node.tag = "h1";
+    }
+  };
 }
 function transformText(node, context) {
-  if (node.type === "Text") {
-    // node.content = node.content.repeat(2);
-    // 1. 调试 context.replaceNode 功能，用于替换文本节点
-    // context.replaceNode({
-    //   type: "Element",
-    //   tag: "span",
-    // });
-    // 2. 调试 context.removeNode 功能，用于移除文本节点
-    // context.removeNode();
-  }
+  return () => {
+    if (node.type === "Text") {
+      // node.content = node.content.repeat(2);
+      // 1. 调试 context.replaceNode 功能，用于替换文本节点
+      // context.replaceNode({
+      //   type: "Element",
+      //   tag: "span",
+      // });
+      // 2. 调试 context.removeNode 功能，用于移除文本节点
+      // context.removeNode();
+    }
+  };
 }
