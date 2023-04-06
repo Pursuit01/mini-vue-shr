@@ -33,6 +33,7 @@ export function tokenize(str) {
       case State.tagOpen:
         if (isAlpha(char)) {
           currentState = State.tagName;
+          chars.push(char);
           str = str.slice(1);
         } else if (char === "/") {
           currentState = State.tagEnd;
@@ -64,7 +65,7 @@ export function tokenize(str) {
             content: chars.join(""),
           });
           chars.length = 0;
-          str = str = str.slice(1);
+          str = str.slice(1);
         }
         break;
       case State.tagEnd:
@@ -92,3 +93,45 @@ export function tokenize(str) {
   }
   return tokens;
 }
+
+export function parse(str) {
+  const tokens = tokenize(str);
+
+  const root = {
+    type: "Root",
+    children: [],
+  };
+
+  const elementStack = [root];
+
+  while (tokens.length) {
+    const parent = elementStack[elementStack.length - 1];
+    const t = tokens[0];
+    switch (t.type) {
+      case "tag":
+        const elementNode = {
+          type: "Element",
+          tag: t.name,
+          children: [],
+        };
+        parent.children.push(elementNode);
+        elementStack.push(elementNode);
+        break;
+      case "text":
+        const textNode = {
+          type: "Text",
+          content: t.content,
+        };
+        parent.children.push(textNode);
+        break;
+      case "tagEnd":
+        elementStack.pop();
+        break;
+    }
+    tokens.shift();
+  }
+  return root;
+}
+// const template = `<p>123</p>`;
+// let ast = tokenize(template);
+// console.log(ast);
