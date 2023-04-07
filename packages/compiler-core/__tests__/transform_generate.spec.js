@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { generate } from "../src/generate";
 import { parse } from "../src/parse";
 import { dump, transform } from "../src/transform";
 import { createCallExpression } from "../src/util";
@@ -9,10 +10,15 @@ describe("transform", () => {
     dump(ast);
   });
   it("transform", () => {
-    transform(parse(template));
+    const template = `<div><p>qwe</p><p>asdc</p></div>`;
+    let ast = parse(template);
+    transform(ast);
+    // console.log(ast.jsNode);
+    const code = generate(ast.jsNode);
+    console.log(code);
   });
   it("util-createCallExpression", () => {
     let res = createCallExpression("h", [{ type: "String", value: "112" }]);
-    console.log(res);
+    // console.log(res);
   });
 });

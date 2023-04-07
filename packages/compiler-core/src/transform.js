@@ -11,7 +11,7 @@ export function transform(ast) {
     childIndex: 0, // 当前节点在父节点的 children 中的位置索引
     parent: null, // 当前转换节点的父节点
     currentNode: null, // 当前正在转换的节点
-    nodeTransforms: [transformElement, transformText],
+    nodeTransforms: [transformElement, transformText, transformRoot],
     // replaceNode 用于替换节点的函数，接收新节点作为参数
     replaceNode(node) {
       // 使用新节点替换旧节点
