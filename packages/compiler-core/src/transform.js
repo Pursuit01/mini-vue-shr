@@ -1,3 +1,10 @@
+import {
+  createArrayExpression,
+  createCallExpression,
+  createIdentifier,
+  createStringLiteral,
+} from "./util";
+
 export function transform(ast) {
   // 创建转换上下文对象，用来存储当前节点相关信息和常规操作
   const context = {
@@ -89,22 +96,47 @@ export function traverseNode(ast, context) {
 function transformElement(node) {
   // 处理转换函数的工作流，返回一个会在退出阶段执行的回调函数
   return () => {
-    if (node.type === "Element" && node.tag === "p") {
-      node.tag = "h1";
-    }
+    if (node.type !== "Element") return;
+    const callExp = createCallExpression("h", [createStringLiteral(node.tag)]);
+    node.children.length === 0
+      ? callExp.arguments.push(node.children[0].jsNode)
+      : callExp.arguments.push(
+          createArrayExpression(node.children.map((n) => n.jsNode))
+        );
+    node.jsNode = callExp;
+    // if (node.type === "Element" && node.tag === "p") {
+    //   node.tag = "h1";
+    // }
   };
 }
 function transformText(node, context) {
   return () => {
-    if (node.type === "Text") {
-      // node.content = node.content.repeat(2);
-      // 1. 调试 context.replaceNode 功能，用于替换文本节点
-      // context.replaceNode({
-      //   type: "Element",
-      //   tag: "span",
-      // });
-      // 2. 调试 context.removeNode 功能，用于移除文本节点
-      // context.removeNode();
-    }
+    if (node.type !== "Text") return;
+    node.jsNode = createStringLiteral(node.content);
+    // node.content = node.content.repeat(2);
+    // 1. 调试 context.replaceNode 功能，用于替换文本节点
+    // context.replaceNode({
+    //   type: "Element",
+    //   tag: "span",
+    // });
+    // 2. 调试 context.removeNode 功能，用于移除文本节点
+    // context.removeNode();
+  };
+}
+function transformRoot(node) {
+  return () => {
+    if (node.type !== "Root") return;
+    const vnodeJSAST = node.children[0].jsNode;
+    node.jsNode = {
+      type: "FunctionDecl",
+      id: createIdentifier("render"),
+      params: [],
+      body: [
+        {
+          type: "ReturnStatement",
+          return: vnodeJSAST,
+        },
+      ],
+    };
   };
 }
