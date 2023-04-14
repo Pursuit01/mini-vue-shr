@@ -18,13 +18,19 @@
 - readonly
 - shallowReadonly
 
+#### 渲染器
+
+- 实现挂载与更新操作
+- 实现虚拟DOM简单diff算法
+- 实现虚拟DOM双端diff算法
+
 #### 组件初始化
 
 - 组件生命周期钩子处理
 - 组件 setup 函数处理及 props，renderContext 处理
 - 组件实例 instance 处理
 
-#### 模板编译
+#### 模板编译器
 
 - parse（通过有限状态自动机构造一个词法分析器，生成模板 AST）
 - transform（将 模板 AST 生成JS AST并挂载到 node.jsNode 上）
